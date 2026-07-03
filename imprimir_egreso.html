@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Cotilpez - Impresión Egreso RawBT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #e8ecf1;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        
+        .paper {
+            max-width: 480px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .header {
+            background: #dc3545;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 4px;
+            letter-spacing: 1px;
+        }
+        
+        .header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .info-card {
+            background: #fef2f2;
+            border-left: 4px solid #dc3545;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        
+        .info-card p {
+            margin: 4px 0;
+        }
+        
+        .ticket-preview {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 350px;
+            overflow: auto;
+        }
+        
+        .ticket-preview::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .ticket-preview::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        
+        .ticket-preview::-webkit-scrollbar-thumb {
+            background: #dc3545;
+            border-radius: 10px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 10px;
+        }
+        
+        button:active {
+            transform: scale(0.97);
+        }
+        
+        .btn-primary {
+            background: #dc3545;
+            color: white;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: #a71d2a;
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #475569;
+        }
+        
+        .btn-danger {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .flex-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .flex-buttons button {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 12px;
+        }
+        
+        .status-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-warning {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 16px 20px;
+            background: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+    <div class="paper">
+        <div class="header">
+            <h1>💸 COTILPEZ S.A.S.</h1>
+            <p>Comprobante de Egreso - RawBT</p>
+        </div>
+        
+        <div class="content">
+            <div id="infoEgreso" class="info-card">
+                <p>📄 Cargando información del egreso...</p>
+            </div>
+            
+            <div id="ticketPreview" class="ticket-preview">
+                ⏳ Generando ticket...
+            </div>
+            
+            <button id="btnImprimir" class="btn-primary">🖨️ IMPRIMIR TICKET</button>
+            
+            <div class="flex-buttons">
+                <button id="btnCopiar" class="btn-secondary">📋 COPIAR</button>
+                <button id="btnCerrar" class="btn-danger">❌ CERRAR</button>
+            </div>
+            
+            <div id="status" class="status status-info">
+                ⚪ Listo para imprimir
+            </div>
+        </div>
+        
+        <div class="footer">
+            Conecta tu impresora DPP-350 en RawBT | PIN: 0000
+        </div>
+    </div>
+
+    <script>
+        let ticketTexto = '';
+        let datosEgreso = null;
+        let totalNumerico = 0;
+        
+        function leerDatosURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            datosEgreso = {
+                factura: urlParams.get('factura') || 'EGRESO_S/N',
+                fecha: urlParams.get('fecha') || new Date().toLocaleString(),
+                cuentaDebitoCodigo: urlParams.get('cuentaDebitoCodigo') || '',
+                cuentaDebitoNombre: urlParams.get('cuentaDebitoNombre') || 'Sin cuenta',
+                cod1: urlParams.get('cod1') || '',
+                cod2: urlParams.get('cod2') || '',
+                cuentaCreditoCodigo: urlParams.get('cuentaCreditoCodigo') || '',
+                cuentaCreditoNombre: urlParams.get('cuentaCreditoNombre') || 'Sin cuenta',
+                monto: parseFloat(urlParams.get('monto')) || 0,
+                comentario: urlParams.get('comentario') || ''
+            };
+            
+            totalNumerico = datosEgreso.monto;
+            
+            mostrarInfoEgreso();
+            ticketTexto = generarTicketTexto();
+            document.getElementById('ticketPreview').innerText = ticketTexto;
+            
+            return datosEgreso.factura !== 'EGRESO_S/N';
+        }
+        
+        function mostrarInfoEgreso() {
+            const container = document.getElementById('infoEgreso');
+            let comentarioHtml = '';
+            if (datosEgreso.comentario && datosEgreso.comentario.trim() !== '') {
+                comentarioHtml = `<p><strong>💬 DESCRIPCIÓN:</strong> ${escapeHtml(datosEgreso.comentario)}</p>`;
+            }
+            
+            container.innerHTML = `
+                <p><strong>📄 COMPROBANTE #:</strong> ${datosEgreso.factura}</p>
+                <p><strong>📅 FECHA:</strong> ${datosEgreso.fecha}</p>
+                <p><strong>🏦 CUENTA DÉBITO:</strong> ${escapeHtml(datosEgreso.cuentaDebitoCodigo)} - ${escapeHtml(datosEgreso.cuentaDebitoNombre)}</p>
+                <p><strong>📌 COD_1:</strong> ${escapeHtml(datosEgreso.cod1) || 'N/A'}</p>
+                <p><strong>📌 COD_2:</strong> ${escapeHtml(datosEgreso.cod2) || 'N/A'}</p>
+                <p><strong>🏦 CUENTA CRÉDITO:</strong> ${escapeHtml(datosEgreso.cuentaCreditoCodigo)} - ${escapeHtml(datosEgreso.cuentaCreditoNombre)}</p>
+                <p><strong>💰 MONTO:</strong> $${totalNumerico.toLocaleString()}</p>
+                ${comentarioHtml}
+            `;
+        }
+        
+        function generarTicketTexto() {
+            const ancho = 48;
+            let t = '';
+            
+            t += '_'.repeat(ancho) + '\n';
+            t += centerText('COTILPEZ S.A.S.', ancho) + '\n';
+            t += centerText('NIT: 900.300.702-0', ancho) + '\n';
+            t += `Calle 43 8b 22 Pereira Risaralda \n`;
+            t += `Comercializadora de Tilapias y Pescados \n`;
+            t += '_'.repeat(ancho) + '\n';
+            t += centerText('COMPROBANTE DE EGRESO', ancho) + '\n';
+            t += '_'.repeat(ancho) + '\n';
+            t += `Comprobante: ${datosEgreso.factura}\n`;
+            t += `Fecha: ${datosEgreso.fecha}\n`;
+            t += '_'.repeat(ancho) + '\n';
+            
+            t += `\n🏦 CUENTA DÉBITO:\n`;
+            t += `   Código: ${datosEgreso.cuentaDebitoCodigo || 'N/A'}\n`;
+            t += `   Nombre: ${datosEgreso.cuentaDebitoNombre}\n`;
+            
+            t += `\n📌 CÓDIGOS:\n`;
+            t += `   COD_1: ${datosEgreso.cod1 || 'N/A'}\n`;
+            t += `   COD_2: ${datosEgreso.cod2 || 'N/A'}\n`;
+            
+            t += `\n🏦 CUENTA CRÉDITO:\n`;
+            t += `   Código: ${datosEgreso.cuentaCreditoCodigo || 'N/A'}\n`;
+            t += `   Nombre: ${datosEgreso.cuentaCreditoNombre}\n`;
+            
+            t += '_'.repeat(ancho) + '\n';
+            
+            const montoFormateado = '$' + totalNumerico.toLocaleString();
+            t += padRight('MONTO:', 20) + padRight(montoFormateado, 28) + '\n';
+            
+            t += '_'.repeat(ancho) + '\n';
+            
+            if (datosEgreso.comentario && datosEgreso.comentario.trim() !== '') {
+                t += '\n💬 DESCRIPCIÓN:\n';
+                const lineas = wrapText(datosEgreso.comentario, ancho - 4);
+                for (const linea of lineas) {
+                    t += `   ${linea}\n`;
+                }
+                t += '\n';
+            }
+            
+            t += '_'.repeat(ancho) + '\n';
+            t += ''.repeat(ancho) + '\n';
+            
+            t += centerText('¡EGRESO REGISTRADO!', ancho) + '\n';
+            t += centerText('Este comprobante es válido', ancho) + '\n';
+            t += centerText('como soporte contable', ancho) + '\n';
+            t += '_'.repeat(ancho) + '\n';
+            t += centerText(`Fecha: ${new Date().toLocaleString()}`, ancho) + '\n';
+            t += centerText('Sistema SICSa v1.0', ancho) + '\n';
+            t += '_'.repeat(ancho) + '\n';
+            
+            return t;
+        }
+        
+        function wrapText(texto, maxLen) {
+            if (!texto) return [];
+            const palabras = texto.split(' ');
+            const lineas = [];
+            let lineaActual = '';
+    
+            for (const palabra of palabras) {
+                if ((lineaActual + ' ' + palabra).length <= maxLen) {
+                    lineaActual += (lineaActual ? ' ' : '') + palabra;
+                } else {
+                    if (lineaActual) lineas.push(lineaActual);
+                    lineaActual = palabra;
+                }
+            }
+            if (lineaActual) lineas.push(lineaActual);
+    
+            return lineas;
+        }
+        
+        function centerText(texto, ancho) {
+            if (texto.length >= ancho) return texto.substring(0, ancho);
+            const espacios = ancho - texto.length;
+            const izquierda = Math.floor(espacios / 2);
+            return ' '.repeat(izquierda) + texto + ' '.repeat(espacios - izquierda);
+        }
+        
+        function padRight(texto, ancho) {
+            const str = String(texto);
+            if (str.length >= ancho) return str.substring(0, ancho);
+            return str + ' '.repeat(ancho - str.length);
+        }
+        
+        function padLeft(texto, ancho) {
+            const str = String(texto);
+            if (str.length >= ancho) return str.substring(0, ancho);
+            return ' '.repeat(ancho - str.length) + str;
+        }
+        
+        function escapeHtml(texto) {
+            if (!texto) return '';
+            return texto.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        function imprimirConRawBT() {
+            const statusDiv = document.getElementById('status');
+            
+            if (!ticketTexto || datosEgreso.factura === 'EGRESO_S/N') {
+                statusDiv.innerHTML = '❌ Error: No hay ticket para imprimir';
+                statusDiv.className = 'status status-error';
+                return;
+            }
+            
+            const ticketCodificado = encodeURIComponent(ticketTexto);
+            const intentUri = `intent:${ticketCodificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+            
+            statusDiv.innerHTML = '📤 Abriendo RawBT...';
+            statusDiv.className = 'status status-info';
+            
+            window.location.href = intentUri;
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '✅ Ticket enviado a RawBT. La ventana se cerrará en 3 segundos.';
+                statusDiv.className = 'status status-success';
+            }, 1500);
+            
+            setTimeout(() => {
+                window.close();
+            }, 4000);
+        }
+        
+        function copiarTicket() {
+            if (!ticketTexto) {
+                alert('No hay ticket para copiar');
+                return;
+            }
+            
+            navigator.clipboard.writeText(ticketTexto).then(() => {
+                const statusDiv = document.getElementById('status');
+                statusDiv.innerHTML = '✅ Ticket copiado al portapapeles';
+                statusDiv.className = 'status status-success';
+                
+                setTimeout(() => {
+                    statusDiv.innerHTML = '⚪ Listo para imprimir';
+                    statusDiv.className = 'status status-info';
+                }, 2000);
+            }).catch(() => {
+                const statusDiv = document.getElementById('status');
+                statusDiv.innerHTML = '❌ Error al copiar. Copia manualmente.';
+                statusDiv.className = 'status status-error';
+            });
+        }
+        
+        function cerrarVentana() {
+            window.close();
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const hayDatos = leerDatosURL();
+            
+            if (!hayDatos) {
+                document.getElementById('ticketPreview').innerHTML = '⚠️ No hay datos de egreso para imprimir';
+                document.getElementById('status').innerHTML = '⚠️ Esperando datos del sistema...';
+                document.getElementById('status').className = 'status status-warning';
+            }
+            
+            document.getElementById('btnImprimir').onclick = imprimirConRawBT;
+            document.getElementById('btnCopiar').onclick = copiarTicket;
+            document.getElementById('btnCerrar').onclick = cerrarVentana;
+        });
+    </script>
+</body>
+</html>
